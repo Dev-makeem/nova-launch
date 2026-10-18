@@ -7,6 +7,7 @@
 #[cfg(test)]
 extern crate std;
 
+mod admin_transfer_timeout;
 mod compliance_reporting;
 mod fractionalization;
 #[cfg(test)]
@@ -627,6 +628,7 @@ impl TokenFactory {
 
         // Overwrite any existing pending admin (prevents stale proposals)
         storage::set_pending_admin(&env, &new_admin);
+        admin_transfer_timeout::record_proposal(&env);
 
         // Emit both the legacy and new explicit AdminTransferProposed events
         events::emit_admin_proposed(&env, &current_admin, &new_admin);
@@ -653,6 +655,7 @@ impl TokenFactory {
         new_admin.require_auth();
 
         let pending = storage::get_pending_admin(&env).ok_or(Error::Unauthorized)?;
+        admin_transfer_timeout::require_not_expired(&env)?;
 
         if new_admin != pending {
             return Err(Error::Unauthorized);
@@ -691,6 +694,11 @@ impl TokenFactory {
         events::emit_admin_cancelled(&env, &admin, &pending);
 
         Ok(())
+    }
+
+    /// Expiry timestamp of the pending admin proposal (None if none recorded)
+    pub fn pending_admin_expiry(env: Env) -> Option<u64> {
+        admin_transfer_timeout::get_expiry(&env)
     }
 
     /// Register a trusted cross-contract caller (admin only)
