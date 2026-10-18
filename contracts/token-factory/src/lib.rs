@@ -85,6 +85,7 @@ mod token_creation_snapshot_test;
 mod token_recovery;
 mod treasury;
 mod types;
+mod upgrade_migration;
 mod validation;
 mod vault;
 mod vesting;
@@ -871,6 +872,16 @@ impl TokenFactory {
     /// Whether a function is effectively paused (globally or individually)
     pub fn is_function_paused(env: Env, func: Symbol) -> bool {
         function_pause::is_function_paused(&env, &func)
+    }
+
+    /// Current contract version number used by the upgrade migration hook
+    pub fn contract_version_number(env: Env) -> u32 {
+        upgrade_migration::get_version(&env)
+    }
+
+    /// Run the migration to `target_version` (admin only, once per version, in order)
+    pub fn run_migration(env: Env, admin: Address, target_version: u32) -> Result<u32, Error> {
+        upgrade_migration::run_migration(&env, &admin, target_version)
     }
 
     /// Propose a fee update through the governance flow (#1385)
