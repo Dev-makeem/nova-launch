@@ -9,6 +9,7 @@ extern crate std;
 
 mod admin_transfer_timeout;
 mod compliance_reporting;
+mod function_pause;
 mod fractionalization;
 #[cfg(test)]
 mod fractionalization_test;
@@ -855,6 +856,21 @@ impl TokenFactory {
     /// ```
     pub fn is_paused(env: Env) -> bool {
         storage::is_paused(&env)
+    }
+
+    /// Pause a single function by symbol (admin only). Global pause keeps precedence.
+    pub fn pause_function(env: Env, admin: Address, func: Symbol) -> Result<(), Error> {
+        function_pause::set_function_paused(&env, &admin, func, true)
+    }
+
+    /// Clear a single function's pause flag (admin only)
+    pub fn unpause_function(env: Env, admin: Address, func: Symbol) -> Result<(), Error> {
+        function_pause::set_function_paused(&env, &admin, func, false)
+    }
+
+    /// Whether a function is effectively paused (globally or individually)
+    pub fn is_function_paused(env: Env, func: Symbol) -> bool {
+        function_pause::is_function_paused(&env, &func)
     }
 
     /// Propose a fee update through the governance flow (#1385)
@@ -2052,6 +2068,7 @@ impl TokenFactory {
         metadata_uri: Option<String>,
         fee_payment: i128,
     ) -> Result<Address, Error> {
+        function_pause::require_not_paused(&env, &symbol_short!("create"))?;
         token_creation::create_token(
             &env,
             creator,
@@ -2894,6 +2911,7 @@ impl TokenFactory {
         to: Address,
         amount: i128,
     ) -> Result<(), Error> {
+        function_pause::require_not_paused(&env, &symbol_short!("mint"))?;
         // Check if contract is paused
         if storage::is_paused(&env) {
             return Err(Error::ContractPaused);
